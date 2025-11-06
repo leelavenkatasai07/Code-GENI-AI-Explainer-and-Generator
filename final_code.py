@@ -3,9 +3,8 @@ import requests
 import io
 import json
 import base64
-import html  # for HTML escaping
+import html  
 
-# Optional OCR libraries
 try:
     from PIL import Image
     import pytesseract
@@ -24,13 +23,13 @@ st.set_page_config(page_title="ChatGPT", page_icon="☯", layout="wide")
 
 # ---------------- SESSION STATE ----------------
 if "chats" not in st.session_state:
-    st.session_state.chats = []  # list of saved chats
+    st.session_state.chats = []  
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = {"name": None, "messages": []}
 if "chat_saved" not in st.session_state:
     st.session_state.chat_saved = False
 if "menu_open" not in st.session_state:
-    st.session_state.menu_open = {}  # track which chat menu is open
+    st.session_state.menu_open = {}  
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = "codellama:7b"
 
@@ -51,12 +50,12 @@ with st.sidebar:
         "Choose a Model",
         ["codellama:7b", "mistral:7b", "llama2:7b"],
         index=0
-    ) 
+    )
 
     model_descriptions = {
-        "codellama:7b" : "Best for **code explanation and generation**, (debugging, syntax).",
-        "mistral:7b" : "Fast and efficient for **general Q&A**, (reasoning, summaries).",
-        "llama2:7b" : "Balanced model for **general explanations and code help**."
+        "codellama:7b": "Best for **code explanation and generation**, (debugging, syntax).",
+        "mistral:7b": "Fast and efficient for **general Q&A**, (reasoning, summaries).",
+        "llama2:7b": "Balanced model for **general explanations and code help**."
     }
     st.info(model_descriptions[model_choice])
 
@@ -171,7 +170,7 @@ if uploaded_file:
     if TESSERACT_AVAILABLE and image:
         try:
             st.session_state.ocr_text = pytesseract.image_to_string(image).strip()
-            st.success("OCR completed (will send when you press Enter).")
+            st.success("OCR completed (text will be used internally).")
         except Exception as e:
             st.session_state.ocr_text = ""
             st.warning(f"OCR failed: {e}")
@@ -184,7 +183,6 @@ if uploaded_file:
 prompt = st.chat_input("Type your message...")
 
 if prompt is not None:
-    # Build user message content: text -> image preview -> OCR
     parts = []
     if prompt.strip():
         parts.append(f"<div style='margin-bottom:8px;font-weight:600;'>{escape_html(prompt)}</div>")
@@ -193,11 +191,6 @@ if prompt is not None:
         b64 = base64.b64encode(st.session_state.uploaded_image_bytes).decode("utf-8")
         img_tag = f"<div style='margin:8px 0;'><img src='data:image/png;base64,{b64}' style='max-width:240px;border-radius:6px;display:block;' /></div>"
         parts.append(img_tag)
-
-    if st.session_state.ocr_text:
-        safe_ocr = escape_html(st.session_state.ocr_text)
-        parts.append(f"<div style='margin-top:6px;'><strong>Extracted text:</strong><pre style='white-space:pre-wrap;margin:6px 0;padding:6px;"
-                     f"border-radius:6px;background:#ffffff;border:1px solid #ddd;max-width:80%'>{safe_ocr}</pre></div>")
 
     if parts:
         user_content_html = "".join(parts)
@@ -210,7 +203,6 @@ if prompt is not None:
             st.session_state.chats.append(st.session_state.current_chat)
             st.session_state.chat_saved = True
 
-        # Prepare combined prompt for AI
         combined_prompt_parts = []
         if prompt.strip():
             combined_prompt_parts.append(f"User question: {prompt.strip()}")
@@ -219,10 +211,9 @@ if prompt is not None:
             combined_prompt_parts.append(st.session_state.ocr_text)
         combined_prompt = "\n\n".join(combined_prompt_parts)
 
-        # Clear staged upload/OCR after sending
         st.session_state.uploaded_image_bytes = None
         st.session_state.ocr_text = ""
-
+        st.session_state.last_combined_prompt = combined_prompt
         st.rerun()
 
 # ---------------- ASSISTANT STREAMING ----------------
@@ -230,7 +221,7 @@ if st.session_state.current_chat["messages"] and st.session_state.current_chat["
     import re
     last_user_html = st.session_state.current_chat["messages"][-1]["content"]
     try:
-        user_prompt = re.sub('<[^<]+?>', '', last_user_html).strip()
+        user_prompt = st.session_state.get("last_combined_prompt", "")
     except Exception:
         user_prompt = last_user_html
 
